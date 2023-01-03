@@ -1,4 +1,19 @@
+// Copyright [CaptainLiao](https://github.com/CaptainLiao)
+
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+
+//    http://www.apache.org/licenses/LICENSE-2.0
+
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 import type { HtmlTagDescriptor, Plugin, splitVendorChunk } from 'vite'
+import type { ManualChunksOption } from 'rollup'
 import { init } from 'es-module-lexer'
 import type { ImportSpecifier } from 'es-module-lexer'
 import MagicString from 'magic-string'
@@ -8,11 +23,43 @@ import Debug from 'debug'
 import { parseImports, formatChunkName } from '../node/utils'
 
 type GetManualChunk = ReturnType<typeof splitVendorChunk>
-const ALLOW_MAGIC_COMMENTS = new Set(['webpackChunkName', 'webpackPreload', 'webpackPrefetch'])
-const magicCommentsQueryRE = /(?:\?|&)webpackChunkName|webpackPreload|webpackPrefetch\b/
-const magicCommentRE = /(?:\/\*\s)(webpackChunkName|webpackPreload|inline)(:\s)/
+const ALLOW_MAGIC_COMMENTS = new Set([
+  'webpackChunkName',
+  'webpackPreload',
+  'webpackPrefetch',
+  'chunkName',
+  'preload',
+  'prefetch',
+])
+export const magicCommentsQueryRE =
+  /(?:\?|&)(webpackC|c)hunkName|(webpackP|p)reload|(webpackP|p)refetch\b/
+export const magicCommentRE =
+  /(?:\/\*\s)((webpackC|c)hunkName|(webpackP|p)reload|(webpackP|p)refetch)(:\s)/
 
 const debug = Debug('magicComments')
+
+/**
+ * Call user defined functions that may be defined
+ * at `build.rollupOptions.output` before calling
+ * `manualChunksConfig`.
+ */
+function getManualChunks(
+  initialManualChunks: ManualChunksOption | undefined,
+  builtInManualChunks: GetManualChunk,
+): GetManualChunk {
+  const userDefinedManualChunks =
+    typeof initialManualChunks === 'function' ? initialManualChunks : undefined
+  return (id, opts) => {
+    if (userDefinedManualChunks) {
+      const result = userDefinedManualChunks(id, opts as any)
+      if (result) {
+        debug('chunk file %s user defined chunkname %s', id, result)
+        return result
+      }
+    }
+    return builtInManualChunks(id, opts)
+  }
+}
 
 /**
  * Vite plugin development docs
@@ -91,8 +138,8 @@ export const magicComments = (): Plugin => {
         debug('save chunk file %s meta info %s', id, search.toString())
         // map chunkname to preload & prefetch meta info
         magicCommentsMetaData.set(chunk.fileName, {
-          preload: !!search.get('webpackPreload'),
-          prefetch: !!search.get('webpackPrefetch'),
+          preload: !!(search.get('webpackPreload') ?? search.get('preload')),
+          prefetch: !!(search.get('webpackPrefetch') ?? search.get('prefetch')),
         })
       }
       return null
@@ -121,12 +168,11 @@ export const magicComments = (): Plugin => {
       if (!userConfig.build.rollupOptions) userConfig.build.rollupOptions = {}
       if (!userConfig.build.rollupOptions.output) userConfig.build.rollupOptions.output = {}
 
-      // TODO: process user defined manualChunk functions
       const manualChunks: GetManualChunk = (id) => {
         if (magicCommentsQueryRE.test(id)) {
           const [, query] = id.split('?')
           const search = new URLSearchParams(query)
-          const chunkName = search.get('webpackChunkName')
+          const chunkName = search.get('webpackChunkName') ?? search.get('chunkName')
           return formatChunkName(chunkName ?? undefined) || null
         }
         return null
@@ -136,12 +182,12 @@ export const magicComments = (): Plugin => {
       const output = rollupOptions.output
       if (Array.isArray(output)) {
         rollupOptions.output = output.map((item) => {
-          item.manualChunks = manualChunks
+          item.manualChunks = getManualChunks(item?.manualChunks, manualChunks)
           return item
         })
       } else {
         Object.assign(userConfig.build.rollupOptions.output, {
-          manualChunks,
+          manualChunks: getManualChunks(output?.manualChunks, manualChunks),
         })
       }
     },

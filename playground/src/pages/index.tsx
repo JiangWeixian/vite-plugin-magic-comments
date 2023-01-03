@@ -1,10 +1,7 @@
 import React from 'react'
 
 const Button = import(
-  /* webpackInclude: /\.json$/ */
-  /* webpackExclude: /\.noimport\.json$/ */
-  /* webpackChunkName: "my-button-chunk-name" */
-  /* webpackMode: "lazy" */
+  /* chunkName: "my-button-chunk-name" */
   /* webpackPrefetch: true */
   /* webpackPreload: true */ '../components/button'
 )
