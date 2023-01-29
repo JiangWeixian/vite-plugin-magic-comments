@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 
 import { formatChunkName } from '../src/node/utils'
-import { magicCommentRE } from '../src/exports'
+import { magicCommentRE, magicCommentsQueryRE } from '../src/exports'
 
 describe('format', () => {
   it('format chunkname', () => {
@@ -26,6 +26,6 @@ describe('regex', () => {
     const code = `
     import("module?webpackChunkName=my-chunk-name")
     `
-    expect(magicCommentRE.test(code)).toBe(true)
+    expect(magicCommentsQueryRE.test(code)).toBe(true)
   })
 })
