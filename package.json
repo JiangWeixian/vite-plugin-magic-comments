@@ -27,6 +27,9 @@
   "main": "dist/index.cjs",
   "module": "dist/index.mjs",
   "types": "dist/exports/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build:lib": "rimraf dist && rollup -c --silent",
     "build:dts": "tsc -p ./tsconfig.dts.json",
@@ -37,9 +40,10 @@
     "pretest": "pnpm run build",
     "release": "pnpm run build && np --no-cleanup --yolo --no-publish --any-branch",
     "ci:version": "pnpm changeset version",
-    "ci:publish": "pnpm changeset publish",
+    "ci:publish": "pnpm run build && pnpm changeset publish",
     "ci:snapshot": "pnpm changeset version --snapshot beta",
     "ci:prerelease": "pnpm run build && pnpm changeset publish --tag beta",
+    "prepublishOnly": "publish-police",
     "prepare": "husky install",
     "lint:fix": "eslint . --fix"
   },
@@ -79,6 +83,7 @@
     "np": "7.5.0",
     "npm-run-all": "^4.1.5",
     "prettier": "2.4.1",
+    "publish-police": "^0.0.3",
     "rimraf": "3.0.2",
     "rollup": "3.5.0",
     "rollup-plugin-condition-exports": "2.0.0-next.3",
